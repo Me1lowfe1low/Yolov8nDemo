@@ -16,7 +16,6 @@ protocol DetectionManagerProtocol {
     func setVideoOrientation()
     func updateLayers()
     func updateScreenRect(width newWidth: CGFloat, height newHeight: CGFloat)
-    func updateVideoOutput(with newVideoOutput: AVCaptureVideoDataOutput)
 }
 
 class DetectionManager {
@@ -24,10 +23,6 @@ class DetectionManager {
     private(set) var requests = [VNRequest]()
     private(set) var detectionLayer: CALayer?
     private(set) var screenRect: CGRect?
-    
-    func updateVideoOutput(with newVideoOutput: AVCaptureVideoDataOutput) {
-        videoOutput = newVideoOutput
-    }
     
     func setupDetector() {
         do {

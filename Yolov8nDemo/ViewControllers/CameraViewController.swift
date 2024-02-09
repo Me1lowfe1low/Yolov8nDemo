@@ -3,12 +3,20 @@ import SwiftUI
 import AVFoundation
 import Vision
 
+protocol CameraRecorderManager {
+    var permissionGranted: Bool {get}
+    var captureSession: AVCaptureSession { get }
+    var sessionQueue: DispatchQueue  {get}
+    var previewLayer: AVCaptureVideoPreviewLayer  {get}
+    var imageOrientation: AVCaptureVideoOrientation  {get}
+}
+
 class CameraViewController: UIViewController {
-    private var permissionGranted = false
-    private let captureSession = AVCaptureSession()
-    private let sessionQueue = DispatchQueue(label: "sessionQueue")
-    private var previewLayer = AVCaptureVideoPreviewLayer()
-    private var imageOrientation = AVCaptureVideoOrientation.portrait
+    private(set) var permissionGranted = false
+    private(set) var captureSession = AVCaptureSession()
+    private(set) var sessionQueue = DispatchQueue(label: "sessionQueue")
+    private(set) var previewLayer = AVCaptureVideoPreviewLayer()
+    private(set) var imageOrientation = AVCaptureVideoOrientation.portrait
     
     var detectionManager: DetectionManagerProtocol = DetectionManager()
     
@@ -76,9 +84,7 @@ extension CameraViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
-        if connection.isVideoOrientationSupported {
-            setInitialOrientation()
-        }
+        setInitialOrientation()
         
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         
