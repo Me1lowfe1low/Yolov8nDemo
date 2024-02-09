@@ -10,7 +10,7 @@ class CameraViewController: UIViewController {
     private var previewLayer = AVCaptureVideoPreviewLayer()
     private var imageOrientation = AVCaptureVideoOrientation.portrait
     
-    var detectionManager = DetectionManager()
+    var detectionManager: DetectionManagerProtocol = DetectionManager()
     
     deinit {
         captureSession.stopRunning()
@@ -29,12 +29,13 @@ class CameraViewController: UIViewController {
             self.setupCaptureSession {
                 dispatchGroup.leave()
             }
-            
             dispatchGroup.wait()
             
             self.detectionManager.setupLayers()
             
-            self.view.layer.addSublayer(detectionManager.getLayer())
+            guard let detectionLayer = detectionManager.detectionLayer else { return }
+            
+            self.view.layer.addSublayer(detectionLayer)
             self.detectionManager.setupDetector()
             
             self.captureSession.startRunning()
@@ -45,24 +46,31 @@ class CameraViewController: UIViewController {
         super.viewWillTransition(to: size, with: coordinator)
         
         DispatchQueue.main.async { [weak self] in
-            self?.previewLayer.frame = CGRect(
+            guard let self else { return }
+            
+            self.previewLayer.frame = CGRect(
                 x: 0,
                 y: 0,
                 width: UIScreen.uiApplicationWidth,
                 height: UIScreen.uiApplicationHeight
             )
             
-            self?.previewLayer.connection?.videoOrientation = UIApplication.shared.interfaceOrientation().avCaptureOrientation
+            self.previewLayer.connection?.videoOrientation = UIDevice.current.orientation.avCaptureVideoOrientation
             
-            self?.detectionManager.updateScreenRect(
+            self.detectionManager.updateScreenRect(
                 width: UIScreen.uiApplicationWidth,
                 height: UIScreen.uiApplicationHeight
             )
             
-            self?.detectionManager.updateLayers()
+            detectionManager.setVideoOrientation()
+            self.detectionManager.updateLayers()
         }
     }
-    
+}
+
+// MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
+
+extension CameraViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(
         _ output: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,
@@ -70,7 +78,6 @@ class CameraViewController: UIViewController {
     ) {
         if connection.isVideoOrientationSupported {
             setInitialOrientation()
-            connection.videoOrientation = imageOrientation
         }
         
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
@@ -82,14 +89,12 @@ class CameraViewController: UIViewController {
         )
         
         do {
-            try imageRequestHandler.perform(detectionManager.getRequests())
+            try imageRequestHandler.perform(detectionManager.requests)
         } catch {
             print(error)
         }
     }
 }
-
-extension CameraViewController: AVCaptureVideoDataOutputSampleBufferDelegate {}
 
 // MARK: - Private
 
@@ -135,15 +140,15 @@ extension CameraViewController {
         previewLayer.frame = CGRect(
                 x: 0,
                 y: 0,
-                width: detectionManager.getScreenSize().width,
-                height: detectionManager.getScreenSize().height
+                width: detectionManager.screenRect?.width ?? 0,
+                height: detectionManager.screenRect?.height ?? 0
         )
         
         previewLayer.videoGravity = AVLayerVideoGravity.resizeAspectFill
-        previewLayer.connection?.videoOrientation = .portrait
+        previewLayer.connection?.videoOrientation = UIDevice.current.orientation.avCaptureVideoOrientation
         
         detectionManager.setBufferDelegate(for: self)
-        captureSession.addOutput(detectionManager.getVideoOutput())
+        captureSession.addOutput(detectionManager.videoOutput)
         detectionManager.setVideoOrientation()
         
         DispatchQueue.main.async { [weak self] in
@@ -156,8 +161,7 @@ extension CameraViewController {
     
     private func setInitialOrientation() {
         DispatchQueue.main.async { [weak self] in
-            self?.imageOrientation = UIApplication.shared.interfaceOrientation().avCaptureOrientation
+            self?.imageOrientation = UIDevice.current.orientation.avCaptureVideoOrientation
         }
     }
 }
-

@@ -3,11 +3,31 @@ import AVFoundation
 import UIKit
 import Combine
 
+protocol DetectionManagerProtocol {
+    var videoOutput: AVCaptureVideoDataOutput { get }
+    var requests: [VNRequest] { get }
+    var detectionLayer: CALayer? { get }
+    var screenRect: CGRect? { get }
+    
+    func setBufferDelegate(for delegate: AVCaptureVideoDataOutputSampleBufferDelegate)
+    func setScreenSize(_ completion: @escaping () -> Void)
+    func setupDetector()
+    func setupLayers()
+    func setVideoOrientation()
+    func updateLayers()
+    func updateScreenRect(width newWidth: CGFloat, height newHeight: CGFloat)
+    func updateVideoOutput(with newVideoOutput: AVCaptureVideoDataOutput)
+}
+
 class DetectionManager {
-    private var videoOutput = AVCaptureVideoDataOutput()
-    private var requests = [VNRequest]()
-    private var detectionLayer: CALayer?
-    private var screenRect: CGRect?
+    private(set) var videoOutput = AVCaptureVideoDataOutput()
+    private(set) var requests = [VNRequest]()
+    private(set) var detectionLayer: CALayer?
+    private(set) var screenRect: CGRect?
+    
+    func updateVideoOutput(with newVideoOutput: AVCaptureVideoDataOutput) {
+        videoOutput = newVideoOutput
+    }
     
     func setupDetector() {
         do {
@@ -19,6 +39,8 @@ class DetectionManager {
             let recognitions = VNCoreMLRequest(model: visionModel) { [unowned self] request, error in
                 detectionDidComplete(request: request, error: error)
             }
+            
+            recognitions.imageCropAndScaleOption = .scaleFill
             
             requests = [recognitions]
         } catch let error {
@@ -68,24 +90,10 @@ class DetectionManager {
         )
     }
     
-    func getVideoOutput() -> AVCaptureVideoDataOutput {
-        videoOutput
-    }
-
     func setVideoOrientation() {
         DispatchQueue.main.async { [weak self] in
-            self?.videoOutput.connection(with: .video)?.videoOrientation = .portrait
+            self?.videoOutput.connection(with: .video)?.videoOrientation = UIDevice.current.orientation.avCaptureVideoOrientation
         }
-    }
-    
-    func getRequests() -> [VNRequest] {
-        requests
-    }
-    
-    func getLayer() -> CALayer {
-        guard let detectionLayer else { return CALayer() }
-        
-        return detectionLayer
     }
     
     func setScreenSize(_ completion: @escaping () -> Void) {
@@ -103,13 +111,9 @@ class DetectionManager {
             completion()
         }
     }
-    
-    func getScreenSize() -> CGRect {
-        guard let screenRect else { return CGRect() }
-        
-        return screenRect
-    }
 }
+
+extension DetectionManager: DetectionManagerProtocol {}
 
 // MARK: - Private
 
@@ -125,15 +129,15 @@ extension DetectionManager {
             alpha: 0.5
         )
         boxLayer.cornerRadius = 4
-        
+
         let textLayer = CATextLayer()
         textLayer.string = label
         textLayer.fontSize = calculateFontSize(for: textLayer, in: boxLayer.bounds.size)
-        textLayer.foregroundColor = UIColor.black.cgColor
+        textLayer.foregroundColor = UIColor.red.cgColor
         textLayer.alignmentMode = .center
-        textLayer.bounds = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height)
+        textLayer.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height)
         rotateLayer(textLayer, to: UIDevice.current.orientation)
-        
+        textLayer.position = CGPoint(x: boxLayer.bounds.midX, y: boxLayer.bounds.midY)
         boxLayer.addSublayer(textLayer)
         
         return boxLayer

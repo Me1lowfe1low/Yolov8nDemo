@@ -1,18 +1,18 @@
-import UIKit
 import AVFoundation
+import UIKit
 
-extension UIInterfaceOrientation {
-    var avCaptureOrientation: AVCaptureVideoOrientation {
+extension UIDeviceOrientation {
+    var avCaptureVideoOrientation: AVCaptureVideoOrientation {
         switch self {
             case .portrait:
                 return .portrait
             case .portraitUpsideDown:
                 return .portraitUpsideDown
             case .landscapeLeft:
-                return .landscapeLeft
-            case .landscapeRight:
                 return .landscapeRight
-            default:
+            case .landscapeRight:
+                return .landscapeLeft
+            case .faceUp, .faceDown, .unknown:
                 return .portrait
         }
     }
